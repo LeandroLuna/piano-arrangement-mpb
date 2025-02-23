@@ -31,17 +31,23 @@ def search_video(track_name, video_type):
             title = item['snippet']['title'].lower()
             if (video_type == 'original' and ('original' in title or 'oficial' in title)) or \
                (video_type == 'piano' and ('piano solo' in title or 'piano cover' in title or 'piano' in title)):
-                video_url = f"https://www.youtube.com/watch?v={item['id']['videoId']}"
-                return video_url
+                video_id = item['id']['videoId']
+                video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+                # Get youtube video duration
+                video_details = youtube.videos().list(part='contentDetails', id=video_id).execute()
+                duration = video_details['items'][0]['contentDetails']['duration'] if video_details['items'] else None
+                
+                return video_url, duration  # Return both URL and duration
         
-        return None
+        return None, None
     except Exception as e:
         if "403" in str(e):  # Check if the error is a 403, quota exceeded.
             print(f"Error 403 encountered for {track_name}: {e}")
-            return "ERROR_403"  # Return a specific value to indicate the error
+            return "ERROR_403", None  # Return a specific value to indicate the error
         else:
             print(f"Error searching for video for {track_name}: {e}")
-            return None
+            return None, None
 
 def extract_playlist_id(playlist_url):
     playlist_id = playlist_url.split('/')[-1].split('?')[0]
@@ -72,18 +78,14 @@ def extract_track_data(track):
         'Artist': artist_name,
         'Album': album_name,
         'Release Date': release_date,
-        'Duration (ms)': duration_ms,
+        'Spotify Duration (ms)': duration_ms,
         'Spotify Track URL': track_url
     }
 
 def save_metadata(music_data, df_existing, metadata_file_path):
     df_new = pd.DataFrame(music_data)
     df_combined = pd.concat([df_existing, df_new], ignore_index=True)
-    df_combined['Duration (min:sec)'] = df_combined['Duration (ms)'].apply(
-        lambda x: f"{x // 60000}:{(x % 60000) // 1000:02d}" if x is not None else None
-    )
     df_combined.to_csv(metadata_file_path, index=False)
-    print(df_combined)
 
 # Function to fetch metadata from a playlist
 def fetch_playlist_metadata(playlist_url):
@@ -105,18 +107,20 @@ def fetch_playlist_metadata(playlist_url):
         if track_data is None:
             break
 
-        video_piano_solo_url = search_video(track_data['Track Name'], video_type='piano')
+        video_piano_solo_url, video_piano_duration = search_video(track_data['Track Name'], video_type='piano')
         if video_piano_solo_url == "ERROR_403":
             break
 
-        video_original_url = search_video(track_data['Track Name'], video_type='original')
+        video_original_url, video_original_duration = search_video(track_data['Track Name'], video_type='original')
         if video_original_url == "ERROR_403":
             break
 
         music_data.append({
             **track_data,
+            'YouTube Original Video URL': video_original_url,
+            'Original Duration': video_original_duration,
             'YouTube Piano Solo Video URL': video_piano_solo_url,
-            'YouTube Original Video URL': video_original_url
+            'Piano Solo Duration': video_piano_duration,
         })
         
         print(f"Processed track: {track_data['Track Name']} by {track_data['Artist']}")

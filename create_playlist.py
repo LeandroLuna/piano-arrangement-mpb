@@ -4,6 +4,7 @@ import requests
 from spotipy.oauth2 import SpotifyOAuth
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+import pandas as pd  # Importando pandas para manipulação de dados
 
 load_dotenv()
 
@@ -28,22 +29,31 @@ def search_song_spotify(sp, title, artist):
     else:
         return None
 
+# Function to save the missing tracks in a CSV file
+def save_missing_tracks(not_found_songs):
+    df_missing = pd.DataFrame(not_found_songs, columns=['Title', 'Artist'])
+    missing_tracks_file = os.path.join(os.getenv('BASE_DIR'), 'missing_tracks.csv')
+    df_missing.to_csv(missing_tracks_file, index=False)
+    print(f"Missing tracks saved to {missing_tracks_file}")
+
 # Function to create a playlist on Spotify and add songs to it
 def create_playlist_with_songs(sp, songs):
     user_id = sp.current_user()['id']
     
     # Create a new playlist
-    playlist = sp.user_playlist_create(user_id, name="MPB Playlist", public=True, description="Popular MPB songs playlist")
+    playlist = sp.user_playlist_create(user_id, name="MPB Playlist", public=True, description="Playlist de músicas populares do MPB")
     playlist_id = playlist['id']
     
     # Add songs to the playlist
     track_ids = []
+    not_found_songs = [] 
     for title, artist in songs:
         track_id = search_song_spotify(sp, title, artist)
         if track_id:
             track_ids.append(track_id)
             print(f"Track found and added: {title} by {artist}")
         else:
+            not_found_songs.append((title, artist)) 
             print(f"Track not found: {title} by {artist}")
     
     # Add songs to the playlist in groups of 100
@@ -55,6 +65,10 @@ def create_playlist_with_songs(sp, songs):
     if not track_ids:
         print("Playlist created successfully.")
 
+    # Inform the tracks that were not added
+    if not_found_songs:
+        print(f"Total missing tracks: {len(not_found_songs)}")
+        save_missing_tracks(not_found_songs)
 
 # Function to scrape the MPB songs from letras.mus.br
 def get_mpb_songs():
