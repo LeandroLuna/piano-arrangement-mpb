@@ -11,13 +11,14 @@ youtube = build('youtube', 'v3', developerKey=os.getenv('YOUTUBE_API_KEY'))
 
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=os.getenv('SPOTIFY_CLIENT_ID'), client_secret=os.getenv('SPOTIFY_CLIENT_SECRET')))
 
-# Function to search for piano solo video on YouTube
-def search_piano_solo_video(track_name, cache={}):
+# Function to search for video on YouTube
+def search_video(track_name, video_type='piano', cache={}):
     if track_name in cache:
         print(f"Cache hit for track: {track_name}")
         return cache[track_name]
     
-    query = f"{track_name} piano solo"
+    # Build the query based on the video type
+    query = f"{track_name} original/oficial" if video_type == 'original' else f"{track_name} piano solo/cover"
     
     try:
         request = youtube.search().list(
@@ -29,10 +30,11 @@ def search_piano_solo_video(track_name, cache={}):
         )
         response = request.execute()
 
-        # Checks if the video's title contains the word "piano"
+        # Checks if the video's title contains the word "piano" or "original"
         for item in response['items']:
             title = item['snippet']['title'].lower()
-            if 'piano solo' in title or 'piano cover' in title or 'piano' in title:
+            if (video_type == 'original' and ('original' in title or 'oficial' in title)) or \
+               (video_type == 'piano' and ('piano solo' in title or 'piano cover' in title or 'piano' in title)):
                 video_url = f"https://www.youtube.com/watch?v={item['id']['videoId']}"
                 
                 cache[track_name] = video_url
@@ -68,12 +70,14 @@ def fetch_playlist_metadata(playlist_url):
         artist_name = track['artists'][0].get('name', None) if track['artists'] else None
         album_name = track['album'].get('name', None) if track.get('album') else None
         release_date = track['album'].get('release_date', None) if track.get('album') else None
-        popularity = track.get('popularity', None)
         duration_ms = track.get('duration_ms', None)
         track_url = track['external_urls'].get('spotify', None) if track.get('external_urls') else None
 
         # Search for YouTube piano solo video
-        video_piano_solo_url = search_piano_solo_video(track_name)
+        video_piano_solo_url = search_video(track_name, video_type='piano')
+
+        # Search for YouTube original video
+        video_original_url = search_video(track_name, video_type='original')
 
         # Append track data to the list
         music_data.append({
@@ -81,10 +85,10 @@ def fetch_playlist_metadata(playlist_url):
             'Artist': artist_name,
             'Album': album_name,
             'Release Date': release_date,
-            'Popularity': popularity,
             'Duration (ms)': duration_ms,
-            'Track URL': track_url,
-            'Piano Solo Video': video_piano_solo_url
+            'Spotify Track URL': track_url,
+            'YouTube Piano Solo Video URL': video_piano_solo_url,
+            'YouTube Original Video URL': video_original_url
         })
         
         print(f"Processed track: {track_name} by {artist_name}")
@@ -96,12 +100,10 @@ def fetch_playlist_metadata(playlist_url):
     df['Duration (min:sec)'] = df['Duration (ms)'].apply(lambda x: f"{x // 60000}:{(x % 60000) // 1000:02d}" if x is not None else None)
 
     # Save the DataFrame to a CSV file
-    df.to_csv('playlist_metadata_with_piano_videos.csv', index=False)
+    df.to_csv(os.path.join(os.getenv('BASE_DIR'), 'playlist_metadata.csv'), index=False)
 
-    # Display the DataFrame
     print(df)
 
-    # Return the DataFrame for future use
     return df
 
 if __name__ == "__main__":

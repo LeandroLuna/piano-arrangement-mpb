@@ -42,18 +42,18 @@ def create_playlist_with_songs(sp, songs):
         track_id = search_song_spotify(sp, title, artist)
         if track_id:
             track_ids.append(track_id)
-            print(f"Track found and added: {title} by {artist}", flush=True)
+            print(f"Track found and added: {title} by {artist}")
         else:
-            print(f"Track not found: {title} by {artist}", flush=True)
+            print(f"Track not found: {title} by {artist}")
     
     # Add songs to the playlist in groups of 100
     while track_ids:
         sp.playlist_add_items(playlist_id, track_ids[:100])
         track_ids = track_ids[100:]
-        print(f"Added 100 tracks to the playlist. Remaining tracks: {len(track_ids)}", flush=True)
+        print(f"Added 100 tracks to the playlist. Remaining tracks: {len(track_ids)}")
 
     if not track_ids:
-        print("Playlist created successfully.", flush=True)
+        print("Playlist created successfully.")
 
 
 # Function to scrape the MPB songs from letras.mus.br
