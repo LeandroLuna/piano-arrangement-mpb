@@ -12,11 +12,7 @@ youtube = build('youtube', 'v3', developerKey=os.getenv('YOUTUBE_API_KEY'))
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=os.getenv('SPOTIFY_CLIENT_ID'), client_secret=os.getenv('SPOTIFY_CLIENT_SECRET')))
 
 # Function to search for video on YouTube
-def search_video(track_name, video_type='piano', cache={}):
-    if track_name in cache:
-        print(f"Cache hit for track: {track_name}")
-        return cache[track_name]
-    
+def search_video(track_name, video_type):
     # Build the query based on the video type
     query = f"{track_name} original/oficial" if video_type == 'original' else f"{track_name} piano solo/cover"
     
@@ -36,75 +32,96 @@ def search_video(track_name, video_type='piano', cache={}):
             if (video_type == 'original' and ('original' in title or 'oficial' in title)) or \
                (video_type == 'piano' and ('piano solo' in title or 'piano cover' in title or 'piano' in title)):
                 video_url = f"https://www.youtube.com/watch?v={item['id']['videoId']}"
-                
-                cache[track_name] = video_url
                 return video_url
         
-        cache[track_name] = None
         return None
     except Exception as e:
-        print(f"Error searching for video for {track_name}: {e}")
+        if "403" in str(e):  # Check if the error is a 403, quota exceeded.
+            print(f"Error 403 encountered for {track_name}: {e}")
+            return "ERROR_403"  # Return a specific value to indicate the error
+        else:
+            print(f"Error searching for video for {track_name}: {e}")
+            return None
+
+def extract_playlist_id(playlist_url):
+    playlist_id = playlist_url.split('/')[-1].split('?')[0]
+    if len(playlist_id) != 22:
+        print("Error: Invalid playlist ID.")
         return None
+    return playlist_id
+
+def load_existing_metadata(metadata_file_path):
+    if os.path.exists(metadata_file_path):
+        df_existing = pd.read_csv(metadata_file_path)
+        return len(df_existing), df_existing
+    return 0, pd.DataFrame()
+
+def extract_track_data(track):
+    track_name = track.get('name', None)
+    artist_name = track['artists'][0].get('name', None) if track['artists'] else None
+    album_name = track['album'].get('name', None) if track.get('album') else None
+    release_date = track['album'].get('release_date', None) if track.get('album') else None
+    duration_ms = track.get('duration_ms', None)
+    track_url = track['external_urls'].get('spotify', None) if track.get('external_urls') else None
+
+    if track_name is None:
+        return None
+
+    return {
+        'Track Name': track_name,
+        'Artist': artist_name,
+        'Album': album_name,
+        'Release Date': release_date,
+        'Duration (ms)': duration_ms,
+        'Spotify Track URL': track_url
+    }
+
+def save_metadata(music_data, df_existing, metadata_file_path):
+    df_new = pd.DataFrame(music_data)
+    df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+    df_combined['Duration (min:sec)'] = df_combined['Duration (ms)'].apply(
+        lambda x: f"{x // 60000}:{(x % 60000) // 1000:02d}" if x is not None else None
+    )
+    df_combined.to_csv(metadata_file_path, index=False)
+    print(df_combined)
 
 # Function to fetch metadata from a playlist
 def fetch_playlist_metadata(playlist_url):
-    playlist_id = playlist_url.split('/')[-1].split('?')[0] 
-    
+    playlist_id = extract_playlist_id(playlist_url)
     if not playlist_id:
-        print("Error: Playlist ID not found.")
-        return None 
-
-    spotify_playlist_id_length = 22
-    # Verify if the playlist ID is valid
-    if len(playlist_id) != spotify_playlist_id_length:
-        print("Error: Invalid playlist ID.")
         return None
 
+    metadata_file_path = os.path.join(os.getenv('BASE_DIR'), 'playlist_metadata.csv')
+    last_index, df_existing = load_existing_metadata(metadata_file_path)
+
     playlist = sp.playlist_tracks(playlist_id)
-    
     music_data = []
 
-    for item in playlist['items']:
-        track = item['track']
-        track_name = track.get('name', None)
-        artist_name = track['artists'][0].get('name', None) if track['artists'] else None
-        album_name = track['album'].get('name', None) if track.get('album') else None
-        release_date = track['album'].get('release_date', None) if track.get('album') else None
-        duration_ms = track.get('duration_ms', None)
-        track_url = track['external_urls'].get('spotify', None) if track.get('external_urls') else None
+    for index, item in enumerate(playlist['items']):
+        if index < last_index:
+            continue
+        
+        track_data = extract_track_data(item['track'])
+        if track_data is None:
+            break
 
-        # Search for YouTube piano solo video
-        video_piano_solo_url = search_video(track_name, video_type='piano')
+        video_piano_solo_url = search_video(track_data['Track Name'], video_type='piano')
+        if video_piano_solo_url == "ERROR_403":
+            break
 
-        # Search for YouTube original video
-        video_original_url = search_video(track_name, video_type='original')
+        video_original_url = search_video(track_data['Track Name'], video_type='original')
+        if video_original_url == "ERROR_403":
+            break
 
-        # Append track data to the list
         music_data.append({
-            'Track Name': track_name,
-            'Artist': artist_name,
-            'Album': album_name,
-            'Release Date': release_date,
-            'Duration (ms)': duration_ms,
-            'Spotify Track URL': track_url,
+            **track_data,
             'YouTube Piano Solo Video URL': video_piano_solo_url,
             'YouTube Original Video URL': video_original_url
         })
         
-        print(f"Processed track: {track_name} by {artist_name}")
-    
-    # Create a DataFrame with the track metadata
-    df = pd.DataFrame(music_data)
+        print(f"Processed track: {track_data['Track Name']} by {track_data['Artist']}")
 
-    # Convert duration from milliseconds to minutes:seconds
-    df['Duration (min:sec)'] = df['Duration (ms)'].apply(lambda x: f"{x // 60000}:{(x % 60000) // 1000:02d}" if x is not None else None)
-
-    # Save the DataFrame to a CSV file
-    df.to_csv(os.path.join(os.getenv('BASE_DIR'), 'playlist_metadata.csv'), index=False)
-
-    print(df)
-
-    return df
+    save_metadata(music_data, df_existing, metadata_file_path)
 
 if __name__ == "__main__":
     playlist_url = f'https://open.spotify.com/playlist/{os.getenv("SPOTIFY_PLAYLIST_ID")}'
