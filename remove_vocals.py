@@ -1,6 +1,33 @@
 import os
 import torchaudio
 from openunmix import predict
+import librosa
+import numpy as np
+
+def remove_silence_and_pad(audio, sample_rate, padding_duration=2):
+    # Remove silence from the beginning and end
+    audio_np = audio.numpy()
+    
+    # Find the indices of non-silent parts
+    non_silent_indices = librosa.effects.split(audio_np, top_db=20)
+    
+    # If there are no non-silent parts, return the original audio with padding
+    if len(non_silent_indices) == 0:
+        padding = np.zeros(int(sample_rate * padding_duration))
+        return np.concatenate((padding, audio_np, padding))
+    
+    # Get the start and end of the non-silent segments
+    start = non_silent_indices[0][0]
+    end = non_silent_indices[-1][1]
+    
+    # Trim the audio to remove silence at the beginning and end
+    audio_trimmed = audio_np[start:end]
+    
+    # Add padding
+    padding = np.zeros(int(sample_rate * padding_duration))
+    audio_padded = np.concatenate((padding, audio_trimmed, padding))
+    
+    return audio_padded
 
 def remove_vocals(input_dirs, output_dirs):
     for input_dir, output_dir in zip(input_dirs, output_dirs):
@@ -18,8 +45,11 @@ def remove_vocals(input_dirs, output_dirs):
                 # Load the audio
                 audio, sample_rate = torchaudio.load(input_file)
 
+                # Remove silence and add padding
+                audio_processed = remove_silence_and_pad(audio, sample_rate)
+
                 # Remove vocals
-                instrumental = predict.separate(model, audio)
+                instrumental = predict.separate(model, audio_processed)
 
                 # Save the result
                 output_file = os.path.join(output_dir, filename)
