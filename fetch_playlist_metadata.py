@@ -49,13 +49,6 @@ def search_video(track_name, video_type):
             print(f"Error searching for video for {track_name}: {e}")
             return None, None
 
-def extract_playlist_id(playlist_url):
-    playlist_id = playlist_url.split('/')[-1].split('?')[0]
-    if len(playlist_id) != 22:
-        print("Error: Invalid playlist ID.")
-        return None
-    return playlist_id
-
 def load_existing_metadata(metadata_file_path):
     if os.path.exists(metadata_file_path):
         df_existing = pd.read_csv(metadata_file_path)
@@ -88,8 +81,8 @@ def save_metadata(music_data, df_existing, metadata_file_path):
     df_combined.to_csv(metadata_file_path, index=False)
 
 # Function to fetch metadata from a playlist
-def fetch_playlist_metadata(playlist_url):
-    playlist_id = extract_playlist_id(playlist_url)
+def fetch_playlist_metadata():
+    playlist_id = os.getenv('SPOTIFY_PLAYLIST_ID')
     if not playlist_id:
         return None
 
@@ -128,5 +121,4 @@ def fetch_playlist_metadata(playlist_url):
     save_metadata(music_data, df_existing, metadata_file_path)
 
 if __name__ == "__main__":
-    playlist_url = f'https://open.spotify.com/playlist/{os.getenv("SPOTIFY_PLAYLIST_ID")}'
-    df_metadata = fetch_playlist_metadata(playlist_url)
+    fetch_playlist_metadata()
