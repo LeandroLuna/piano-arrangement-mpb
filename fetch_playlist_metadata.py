@@ -17,9 +17,9 @@ def convert_duration_to_ms(duration):
     return int(duration_obj.total_seconds() * 1000)
 
 # Function to search for video on YouTube
-def search_video(track_name, video_type):
+def search_video(track_name, artist_name, video_type):
     # Build the query based on the video type
-    query = f"{track_name} original/oficial" if video_type == 'original' else f"{track_name} piano solo/cover"
+    query = f"{track_name} por {artist_name}" if video_type == 'original' else f"{track_name} por {artist_name} piano solo/cover"
     
     try:
         request = youtube.search().list(
@@ -105,11 +105,11 @@ def fetch_playlist_metadata():
         if track_data is None:
             break
 
-        video_piano_solo_url, video_piano_duration = search_video(track_data['Track Name'], video_type='piano')
+        video_piano_solo_url, video_piano_duration = search_video(track_data['Track Name'], track_data['Artist'], video_type='piano')
         if video_piano_solo_url == "ERROR_403":
             break
 
-        video_original_url, video_original_duration = search_video(track_data['Track Name'], video_type='original')
+        video_original_url, video_original_duration = search_video(track_data['Track Name'], track_data['Artist'], video_type='original')
         if video_original_url == "ERROR_403":
             break
 
