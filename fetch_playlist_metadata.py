@@ -34,8 +34,8 @@ def search_video(track_name, video_type):
         # Checks if the video's title contains the word "piano" or "original"
         for item in response['items']:
             title = item['snippet']['title'].lower()
-            if (video_type == 'original' and ('original' in title or 'oficial' in title)) or \
-               (video_type == 'piano' and ('piano solo' in title or 'piano cover' in title or 'piano' in title)):
+            if (video_type == 'original') or \
+               (video_type == 'piano' and 'piano' in title):
                 video_id = item['id']['videoId']
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
 
