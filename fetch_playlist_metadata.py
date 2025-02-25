@@ -1,6 +1,7 @@
 import spotipy
 import pandas as pd
 import os
+import isodate
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
@@ -10,6 +11,10 @@ load_dotenv()
 youtube = build('youtube', 'v3', developerKey=os.getenv('YOUTUBE_API_KEY'))
 
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=os.getenv('SPOTIFY_CLIENT_ID'), client_secret=os.getenv('SPOTIFY_CLIENT_SECRET')))
+
+def convert_duration_to_ms(duration):
+    duration_obj = isodate.parse_duration(duration)
+    return int(duration_obj.total_seconds() * 1000)
 
 # Function to search for video on YouTube
 def search_video(track_name, video_type):
@@ -37,8 +42,8 @@ def search_video(track_name, video_type):
                 # Get youtube video duration
                 video_details = youtube.videos().list(part='contentDetails', id=video_id).execute()
                 duration = video_details['items'][0]['contentDetails']['duration'] if video_details['items'] else None
-                
-                return video_url, duration  # Return both URL and duration
+                duration_ms = convert_duration_to_ms(duration) if duration else None
+                return video_url, duration_ms
         
         return None, None
     except Exception as e:
