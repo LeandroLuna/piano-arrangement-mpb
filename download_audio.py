@@ -6,11 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Function to download audio from a video using yt-dlp
-def download_audio(video_url, output_path, index):
+def download_audio(video_url: str, output_path: str, index: int) -> None:
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
-            'key': 'FFmpegAudioConvertor',
+            'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
@@ -20,7 +20,7 @@ def download_audio(video_url, output_path, index):
         ydl.download([video_url])
 
 # Function to download audios from the metadata file
-def download_audios_from_metadata(metadata_file, output_dir):
+def download_audios_from_metadata(metadata_file: str, output_dir: str) -> None:
     # Create output directory if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -33,6 +33,10 @@ def download_audios_from_metadata(metadata_file, output_dir):
         # Use the original video URL and the piano cover video URL
         video_url_original = row.get('YouTube Original Video URL')
         video_url_piano = row.get('YouTube Piano Solo Video URL')
+        
+        if not video_url_original and not video_url_piano:
+            print(f"No video URL found for {row['Track Name']} by {row['Artist']}")
+            break
 
         if video_url_original:
             original_dir = os.path.join(output_dir, 'original')

@@ -9,7 +9,7 @@ import pandas as pd  # Importando pandas para manipulação de dados
 load_dotenv()
 
 # Function to authenticate with Spotify
-def authenticate_spotify():
+def authenticate_spotify() -> spotipy.Spotify:
     sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
         client_id=os.getenv('SPOTIFY_CLIENT_ID'), 
         client_secret=os.getenv('SPOTIFY_CLIENT_SECRET'),
@@ -19,7 +19,7 @@ def authenticate_spotify():
     return sp
 
 # Function to search for a song on Spotify
-def search_song_spotify(sp, title, artist):
+def search_song_spotify(sp: spotipy.Spotify, title: str, artist: str) -> str | None:
     query = f"track:{title} artist:{artist}"
     result = sp.search(query, type='track', limit=1)
     
@@ -30,14 +30,14 @@ def search_song_spotify(sp, title, artist):
         return None
 
 # Function to save the missing tracks in a CSV file
-def save_missing_tracks(not_found_songs):
+def save_missing_tracks(not_found_songs: list[tuple[str, str]]) -> None:
     df_missing = pd.DataFrame(not_found_songs, columns=['Title', 'Artist'])
     missing_tracks_file = os.path.join(os.getenv('BASE_DIR'), 'missing_tracks.csv')
     df_missing.to_csv(missing_tracks_file, index=False)
     print(f"Missing tracks saved to {missing_tracks_file}")
 
 # Function to create a playlist on Spotify and add songs to it
-def create_playlist_with_songs(sp, songs):
+def create_playlist_with_songs(sp: spotipy.Spotify, songs: list[tuple[str, str]]) -> None:
     user_id = sp.current_user()['id']
     
     # Create a new playlist
@@ -71,7 +71,7 @@ def create_playlist_with_songs(sp, songs):
         save_missing_tracks(not_found_songs)
 
 # Function to scrape the MPB songs from letras.mus.br
-def get_mpb_songs():
+def get_mpb_songs() -> list[tuple[str, str]]:
     url = "https://www.letras.mus.br/mais-acessadas/mpb/"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')

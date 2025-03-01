@@ -12,12 +12,12 @@ youtube = build('youtube', 'v3', developerKey=os.getenv('YOUTUBE_API_KEY'))
 
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=os.getenv('SPOTIFY_CLIENT_ID'), client_secret=os.getenv('SPOTIFY_CLIENT_SECRET')))
 
-def convert_duration_to_ms(duration):
-    duration_obj = isodate.parse_duration(duration)
-    return int(duration_obj.total_seconds() * 1000)
+def convert_duration_to_ms(duration: str) -> int:
+    parsed_duration = isodate.parse_duration(duration)
+    return int(parsed_duration.total_seconds() * 1000)
 
 # Function to search for video on YouTube
-def search_video(track_name, artist_name, video_type):
+def search_video(track_name: str, artist_name: str, video_type: str) -> tuple[str, int] | tuple[str, None]:
     # Build the query based on the video type
     query = f"{track_name} por {artist_name}" if video_type == 'original' else f"{track_name} por {artist_name} piano solo/cover"
     
@@ -54,13 +54,17 @@ def search_video(track_name, artist_name, video_type):
             print(f"Error searching for video for {track_name}: {e}")
             return None, None
 
-def load_existing_metadata(metadata_file_path):
+def load_existing_metadata(metadata_file_path: str) -> tuple[int, pd.DataFrame]:
+    last_index = 0
+    df_existing = pd.DataFrame()
+
     if os.path.exists(metadata_file_path):
         df_existing = pd.read_csv(metadata_file_path)
-        return len(df_existing), df_existing
-    return 0, pd.DataFrame()
+        last_index = len(df_existing)
 
-def extract_track_data(track):
+    return last_index, df_existing
+
+def extract_track_data(track: dict) -> dict | None:
     track_name = track.get('name', None)
     artist_name = track['artists'][0].get('name', None) if track['artists'] else None
     album_name = track['album'].get('name', None) if track.get('album') else None
@@ -80,28 +84,27 @@ def extract_track_data(track):
         'Spotify Track URL': track_url
     }
 
-def save_metadata(music_data, df_existing, metadata_file_path):
+def save_metadata(music_data: list[dict], df_existing: pd.DataFrame, metadata_file_path: str):
     df_new = pd.DataFrame(music_data)
     df_combined = pd.concat([df_existing, df_new], ignore_index=True)
     df_combined.to_csv(metadata_file_path, index=False)
 
 # Function to fetch metadata from a playlist
-def fetch_playlist_metadata():
+def fetch_playlist_metadata() -> None:
     playlist_id = os.getenv('SPOTIFY_PLAYLIST_ID')
     if not playlist_id:
         return None
 
     metadata_file_path = os.path.join(os.getenv('BASE_DIR'), 'playlist_metadata.csv')
     last_index, df_existing = load_existing_metadata(metadata_file_path)
-
-    playlist = sp.playlist_tracks(playlist_id)
+    
+    playlist = sp.playlist_tracks(playlist_id, offset=last_index)
+    
     music_data = []
 
     for index, item in enumerate(playlist['items']):
-        if index < last_index:
-            continue
-        
         track_data = extract_track_data(item['track'])
+        
         if track_data is None:
             break
 
@@ -118,7 +121,7 @@ def fetch_playlist_metadata():
             'YouTube Original Video URL': video_original_url,
             'Original Duration': video_original_duration,
             'YouTube Piano Solo Video URL': video_piano_solo_url,
-            'Piano Solo Duration': video_piano_duration,
+            'Piano Solo Duration': video_piano_duration
         })
         
         print(f"Processed track: {track_data['Track Name']} by {track_data['Artist']}")
@@ -126,4 +129,8 @@ def fetch_playlist_metadata():
     save_metadata(music_data, df_existing, metadata_file_path)
 
 if __name__ == "__main__":
-    fetch_playlist_metadata()
+    try:
+        print("Fetching playlist metadata...")
+        fetch_playlist_metadata()
+    except Exception as e:
+        print(f"Error: {e}")
