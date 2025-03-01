@@ -20,8 +20,7 @@ pyparsing==3.2.1
 python-dateutil==2.9.0.post0
 pytz==2025.1
 redis==5.2.1
-requests==2.32.3
-rsa==4.9
+requests==2.32.3rsa==4.9
 six==1.17.0
 soupsieve==2.6
 spotipy==2.25.0
@@ -29,3 +28,5 @@ typing_extensions==4.12.2
 tzdata==2025.1
 uritemplate==4.1.1
 urllib3==2.3.0
+spleeter==2.4.0
+tensorflow
