@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import time
 import requests
 
+# Load environment variables
 load_dotenv()
 
 # Function to authenticate with Spotify

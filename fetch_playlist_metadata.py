@@ -6,12 +6,16 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
+# Initialize YouTube client
 youtube = build('youtube', 'v3', developerKey=os.getenv('YOUTUBE_API_KEY'))
 
+# Initialize Spotify client
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=os.getenv('SPOTIFY_CLIENT_ID'), client_secret=os.getenv('SPOTIFY_CLIENT_SECRET')))
 
+# Function to convert duration to milliseconds
 def convert_duration_to_ms(duration: str) -> int:
     parsed_duration = isodate.parse_duration(duration)
     return int(parsed_duration.total_seconds() * 1000)
@@ -37,13 +41,16 @@ def search_video(track_name: str, artist_name: str, video_type: str) -> tuple[st
             if (video_type == 'original') or \
                (video_type == 'piano' and 'piano' in title):
                 video_id = item['id']['videoId']
-                video_url = f"https://www.youtube.com/watch?v={video_id}"
 
                 # Get youtube video duration
                 video_details = youtube.videos().list(part='contentDetails', id=video_id).execute()
                 duration = video_details['items'][0]['contentDetails']['duration'] if video_details['items'] else None
                 duration_ms = convert_duration_to_ms(duration) if duration else None
-                return video_url, duration_ms
+                
+                # Verify if the video duration is greater than 1 minute
+                if duration_ms and duration_ms >= 60000:
+                    video_url = f"https://www.youtube.com/watch?v={video_id}"
+                    return video_url, duration_ms
         
         return None, None
     except Exception as e:
@@ -54,6 +61,7 @@ def search_video(track_name: str, artist_name: str, video_type: str) -> tuple[st
             print(f"Error searching for video for {track_name}: {e}")
             return None, None
 
+# Function to load existing metadata
 def load_existing_metadata(metadata_file_path: str) -> tuple[int, pd.DataFrame]:
     last_index = 0
     df_existing = pd.DataFrame()
@@ -64,6 +72,7 @@ def load_existing_metadata(metadata_file_path: str) -> tuple[int, pd.DataFrame]:
 
     return last_index, df_existing
 
+# Function to extract track data
 def extract_track_data(track: dict) -> dict | None:
     track_name = track.get('name', None)
     artist_name = track['artists'][0].get('name', None) if track['artists'] else None
@@ -84,6 +93,7 @@ def extract_track_data(track: dict) -> dict | None:
         'Spotify Track URL': track_url
     }
 
+# Function to save metadata
 def save_metadata(music_data: list[dict], df_existing: pd.DataFrame, metadata_file_path: str):
     df_new = pd.DataFrame(music_data)
     df_combined = pd.concat([df_existing, df_new], ignore_index=True)

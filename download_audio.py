@@ -3,6 +3,7 @@ import yt_dlp
 import pandas as pd
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
 # Function to download audio from a video using yt-dlp
