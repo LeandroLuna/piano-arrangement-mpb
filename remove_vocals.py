@@ -19,7 +19,7 @@ def remove_vocals(input_dirs: List[str], output_dirs: List[str]) -> None:
             os.makedirs(output_dir)
 
         # Process each audio file in the input directory
-        for filename in os.listdir(input_dir):
+        for filename in sorted(os.listdir(input_dir)):
             if filename.endswith('.mp3'):
                 input_file = os.path.join(input_dir, filename)
                 print(f"Removing vocals from: {input_file}")
